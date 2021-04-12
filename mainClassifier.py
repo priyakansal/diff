@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Apr 12 12:52:19 2021
 
-@author: SABARI
-"""
 
 import cv2
 import numpy as np
@@ -118,21 +113,21 @@ def lightweight_model(input_shape=(160,160,3),learning_rate=0.0001):
     
     conv2 = conv_block_simple(max1, 32,prefix='256')
 #    conv2 = residual_block(conv2,32, batch_normalization=False, kernel_size=[3, 3], stride=[1, 1],padding='same', data_format0='none')
-    conv2 = residual_block(conv1,16, True)
-    conv2 = residual_block(conv1,16, True)
+    conv2 = residual_block(conv2,32, True)
+    conv2 = residual_block(conv2,32, True)
     max2 =MaxPooling2D(2,padding='same')(conv2)
     
     conv3 = conv_block_simple(max2, 64,prefix='512_0')
 #    conv3 = rec_res_block(conv2,64, batch_normalization=False, kernel_size=[3, 3], stride=[1, 1],padding='same', data_format0='none')
-    conv3 = residual_block(conv1,16, True)
-    conv3 = residual_block(conv1,16, True)
+    conv3 = residual_block(conv3,64, True)
+    conv3 = residual_block(conv3,64, True)
     
     max3 =MaxPooling2D(2,padding='same')(conv3)
     
     conv4 = conv_block_simple(max3, 128,prefix='512_1')
 #    conv4 = rec_res_block(conv4,128, batch_normalization=False, kernel_size=[3, 3], stride=[1, 1],padding='same', data_format0='none')
-    conv4 = residual_block(conv1,16, True)
-    conv4 = residual_block(conv1,16, True)
+    conv4 = residual_block(conv4,128, True)
+    conv4 = residual_block(conv4,128, True)
     max4 =MaxPooling2D(2,padding='same')(conv4)
     
     GA0 = GlobalAveragePooling2D()(max4)
@@ -155,12 +150,12 @@ def lightweight_model(input_shape=(160,160,3),learning_rate=0.0001):
 
 #fileName = np.array([ str(i)+'.jpg' for i in range(1,100938)])
 
-train= pd.read_csv("D:/sabari/GazeEstimation/train.csv")
-valid= pd.read_csv("D:/sabari/GazeEstimation/validation.csv")
+train= pd.read_csv("/home/ubuntu/sabari/gazeEstimation/newDataset/train.csv")
+valid= pd.read_csv("/home/ubuntu/sabari/gazeEstimation/newDataset/validation.csv")
 
 
 
-datasetPath='D:/sabari/GazeEstimation/newDataset/train/'
+datasetPath='/home/ubuntu/sabari/gazeEstimation/newDataset/dataset/train/'
 
 
 
@@ -253,12 +248,12 @@ def generate_data(train_set, batch_size,shuffle=False):
             if i == len(train_ID) :
                 i = 0
                 #shuffle if u want to
-                
-                train_set = train_set.sample(frac=1).reset_index(drop=True)
+                if shuffle:
+                    train_set = train_set.sample(frac=1).reset_index(drop=True)
 
-                imageName = train_ID.imageName.values
-                gazePose0 = train_ID.gazePose0.values
-                gazePose1 = train_ID.gazePose1.values
+                    imageName = train_ID.imageName.values
+                    gazePose0 = train_ID.gazePose0.values # yaw
+                    gazePose1 = train_ID.gazePose1.values # pitch
 
 
             imageName = str(imageNameList[i])
@@ -309,13 +304,13 @@ def generate_data(train_set, batch_size,shuffle=False):
 model = lightweight_model(input_shape=(48,80,3),learning_rate=0.0001)
 
 
-MODEL_PATH='D:/sabari/GazeEstimation/newDataset/model/'
+MODEL_PATH='/home/ubuntu/sabari/gazeEstimation/model/'
 
-model_checkpoint = ModelCheckpoint(MODEL_PATH+"weights--lightweight_model-light--single--48x80--channel-rec_res_block-{epoch:02d}-val_loss--{val_loss:.4f}---val_gaze_loss--{val_gaze_loss:.4f}.hdf5",monitor='val_loss', 
+model_checkpoint = ModelCheckpoint(MODEL_PATH+"weights--lightweight_model-light--single--48x80--channel-residual-{epoch:02d}-val_loss--{val_loss:.4f}---val_gaze_loss--{val_mean_squared_error:.4f}.hdf5",monitor='val_loss', 
                                    mode = 'min', save_best_only=True,save_weights_only=True, verbose=1)
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', mode = 'min',factor=0.1, patience=5, min_lr=0.00001, verbose=1)
 
 batch_size=16
-results = model.fit_generator(generate_data(train,batch_size), validation_data=generate_data(valid,batch_size),steps_per_epoch=int(len(train)/batch_size),validation_steps=int(len(valid)/batch_size),
+results = model.fit_generator(generate_data(train,batch_size,True), validation_data=generate_data(valid,batch_size),steps_per_epoch=int(len(train)/batch_size),validation_steps=int(len(valid)/batch_size),
                               epochs=1000,callbacks=[model_checkpoint,reduce_lr], verbose=1)
 #
